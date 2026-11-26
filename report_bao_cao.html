@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Báo Cáo Kỹ Thuật: Cơ Chế Xử Lý & Chống Ban IP Cho Browser Agent Đặt Bàn</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* Gam màu Xanh lá Pastel */
+            --pastel-green-50: #f2f7f4;
+            --pastel-green-100: #e2ede5;
+            --pastel-green-200: #c5dbcc;
+            --pastel-green-300: #9fc1a9;
+            --pastel-green-500: #528965;
+            --pastel-green-600: #3f6e50;
+            --pastel-green-700: #2d523b;
+            --pastel-green-800: #1e3828;
+            
+            --bg-main: #f5f8f6;
+            --card-bg: #ffffff;
+            --text-heading: #1e3828;
+            --text-body: #3c5244;
+            --text-muted: #6b8071;
+            --border: #dbe7df;
+            
+            --danger: #cf4a4a;
+            --danger-bg: #fdf2f2;
+            --warning: #c27803;
+            --warning-bg: #fef9ee;
+            --success: #2e7d32;
+            --success-bg: #e8f5e9;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-body);
+            line-height: 1.6;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Top Header Bar */
+        .top-bar {
+            background: #ffffff;
+            border-bottom: 1px solid var(--border);
+            padding: 12px 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 60px;
+            flex-shrink: 0;
+            z-index: 10;
+        }
+        .brand-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-heading);
+        }
+        .brand-pill {
+            background: var(--pastel-green-100);
+            color: var(--pastel-green-700);
+            padding: 3px 9px;
+            border-radius: 6px;
+            font-size: 11.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .top-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .btn-print {
+            background: var(--pastel-green-50);
+            border: 1px solid var(--pastel-green-200);
+            color: var(--pastel-green-700);
+            padding: 7px 16px;
+            border-radius: 6px;
+            font-size: 12.5px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-print:hover {
+            background: var(--pastel-green-100);
+            border-color: var(--pastel-green-300);
+        }
+
+        /* Two-column Layout */
+        .app-body {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Left Sidebar (Nhỏ hơn) */
+        .sidebar {
+            width: 280px;
+            background: #ffffff;
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            padding: 24px 14px;
+            overflow-y: auto;
+        }
+        .sidebar-title {
+            font-size: 11.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-muted);
+            margin: 0 12px 14px;
+        }
+        .nav-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .nav-item {
+            padding: 12px 16px;
+            border-radius: 8px;
+            color: var(--text-body);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+            border: 1px solid transparent;
+        }
+        .nav-item:hover {
+            background: var(--pastel-green-50);
+            color: var(--pastel-green-700);
+        }
+        .nav-item.active {
+            background: var(--pastel-green-100);
+            color: var(--pastel-green-800);
+            border-color: var(--pastel-green-200);
+            box-shadow: 0 1px 3px rgba(45, 82, 59, 0.05);
+        }
+        .sidebar-footer {
+            margin-top: auto;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+            font-size: 12px;
+            color: var(--text-muted);
+            padding-left: 10px;
+        }
+
+        /* Right Content Pane (To hơn) */
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 32px 45px;
+            background: var(--bg-main);
+        }
+        .content-section {
+            display: none;
+            max-width: 920px;
+            margin: 0 auto;
+            animation: fadeIn 0.2s ease-out;
+        }
+        .content-section.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Content Card Styling */
+        .section-header {
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid var(--pastel-green-200);
+        }
+        .section-title {
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--text-heading);
+            margin-bottom: 6px;
+        }
+        .section-desc {
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+        }
+        .card-inner-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-heading);
+            margin-bottom: 14px;
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11.5px;
+            font-weight: 700;
+        }
+        .badge-danger { background: var(--danger-bg); color: var(--danger); }
+        .badge-warning { background: var(--warning-bg); color: var(--warning); }
+        .badge-success { background: var(--success-bg); color: var(--success); }
+
+        /* Tables */
+        .styled-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13.5px;
+            margin: 14px 0;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+        .styled-table th, .styled-table td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        .styled-table th {
+            background: var(--pastel-green-50);
+            color: var(--text-heading);
+            font-weight: 700;
+        }
+
+        /* 4-Tier Grid */
+        .tier-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin: 15px 0;
+        }
+        .tier-card {
+            background: var(--pastel-green-50);
+            border: 1px solid var(--pastel-green-200);
+            border-radius: 8px;
+            padding: 18px;
+            border-top: 4px solid var(--pastel-green-500);
+        }
+        .tier-num {
+            font-size: 11px;
+            font-weight: 800;
+            color: var(--pastel-green-600);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .tier-name {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-heading);
+            margin-bottom: 6px;
+        }
+        .tier-detail {
+            font-size: 13px;
+            color: var(--text-body);
+            line-height: 1.5;
+        }
+
+        /* Flow Box */
+        .flow-box {
+            background: #1b2e23;
+            color: #d1fae5;
+            padding: 18px;
+            border-radius: 8px;
+            font-family: 'JetBrains Mono', Consolas, monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            overflow-x: auto;
+            margin: 15px 0;
+            border-left: 4px solid var(--pastel-green-300);
+        }
+
+        /* Alert Callout */
+        .alert-box {
+            background: var(--pastel-green-50);
+            border-left: 4px solid var(--pastel-green-500);
+            padding: 14px 18px;
+            border-radius: 0 8px 8px 0;
+            font-size: 13.5px;
+            color: var(--pastel-green-800);
+            margin: 15px 0;
+            line-height: 1.6;
+        }
+
+        @media print {
+            body { overflow: visible; height: auto; background: white; }
+            .top-bar, .sidebar { display: none; }
+            .main-content { overflow: visible; padding: 0; }
+            .content-section { display: block !important; margin-bottom: 40px; page-break-after: always; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top Navigation Bar -->
+    <header class="top-bar">
+        <div class="brand-title">
+            <span>Báo Cáo Kỹ Thuật: Cơ Chế Chống Ban IP</span>
+            <span class="brand-pill">AI Browser Agent</span>
+        </div>
+        <div class="top-actions">
+            <button class="btn-print" onclick="window.print()">
+                Xuất / In PDF
+            </button>
+        </div>
+    </header>
+
+    <div class="app-body">
+        
+        <!-- Left Sidebar (Thanh Bên Trái Nhỏ Hơn Chứa Các Mục Chính) -->
+        <nav class="sidebar">
+            <div class="sidebar-title">Danh Mục Báo Cáo</div>
+            <ul class="nav-list">
+                <li class="nav-item active" onclick="switchTab('sec-distinction', this)">
+                    <span>1. Chặn IP vs Rate Limit</span>
+                </li>
+                <li class="nav-item" onclick="switchTab('sec-architecture', this)">
+                    <span>2. Kiến Trúc 4 Tầng Phòng Vệ</span>
+                </li>
+                <li class="nav-item" onclick="switchTab('sec-methodology', this)">
+                    <span>3. Phương Pháp Thực Nghiệm An Toàn</span>
+                </li>
+            </ul>
+
+            <div class="sidebar-footer">
+                <div>Thư mục: <code>d:\browser_use_sandbox_antiban</code></div>
+            </div>
+        </nav>
+
+        <!-- Right Main Content (Thanh Bên Phải To Chứa Thông Tin Chi Tiết) -->
+        <main class="main-content">
+
+            <!-- MỤC 1: PHÂN BIỆT IP BAN VS RATELIMIT -->
+            <section id="sec-distinction" class="content-section active">
+                <div class="section-header">
+                    <h1 class="section-title">1. Phân Biệt Chặn IP (IP Ban) vs Giới Hạn Tần Suất (Rate Limit)</h1>
+                    <div class="section-desc">Tránh bẫy thiết kế: Nhầm lẫn giữa hết hạn ngạch tạm thời và bị cấm IP ở cấp chính sách.</div>
+                </div>
+
+                <div class="card">
+                    <p style="margin-bottom: 14px; font-size: 14px;">
+                        Khi bị chặn IP ở cấp chính sách (Policy Ban / WAF Block), nếu Agent tiếp tục tự động xoay proxy hoặc spam reload liên tục thì sẽ làm <strong>đốt cháy toàn bộ dải IP phụ và đưa hệ thống vào Blacklist an ninh mạng toàn cầu</strong>.
+                    </p>
+
+                    <table class="styled-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 22%;">Tiêu chí</th>
+                                <th style="width: 39%;">Giới Hạn Tần Suất (Rate Limit)</th>
+                                <th style="width: 39%;">Chặn IP (IP Ban / WAF Block)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Mã phản hồi HTTP</strong></td>
+                                <td><span class="badge badge-warning">HTTP 429 Too Many Requests</span></td>
+                                <td><span class="badge badge-danger">HTTP 403 Forbidden / HTTP 451</span></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Bản chất sự cố</strong></td>
+                                <td>Hết hạn ngạch (quota) tạm thời trong 1 phút hoặc 1 giờ.</td>
+                                <td>Server hoặc WAF cấm hẳn IP do nằm trong blacklist hoặc bị phát hiện bot.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Dữ liệu kèm theo</strong></td>
+                                <td>Thường có header chuẩn <code>Retry-After: 30</code>.</td>
+                                <td>Kèm chữ ký WAF: <code>Ray ID</code>, <code>Error 1020</code>, <code>Access Denied</code>.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Hành vi sai lầm cần tránh</strong></td>
+                                <td>Bỏ cuộc ngay lập tức khi chưa chờ hết quota.</td>
+                                <td><strong style="color: var(--danger);">Cố chấp reload hoặc liên tục xoay proxy spam tiếp</strong>.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Cơ chế xử lý chuẩn</strong></td>
+                                <td>Chờ theo <code>Retry-After</code> (Exponential Backoff) rồi gọi lại.</td>
+                                <td><strong style="color: var(--pastel-green-700);">DỪNG NGAY TỨC THÌ (Stop & Escalate)</strong>, kích hoạt Cầu dao (Circuit Breaker) và trả Deeplink cho người dùng.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- MỤC 2: KIẾN TRÚC 4 TẦNG -->
+            <section id="sec-architecture" class="content-section">
+                <div class="section-header">
+                    <h1 class="section-title">2. Kiến Trúc 4 Tầng Phòng Vệ & Chống Ban IP</h1>
+                    <div class="section-desc">Cơ chế bảo vệ đa tầng từ cấp phát Sandbox đến nhận diện tín hiệu và ngắt cầu dao.</div>
+                </div>
+
+                <div class="tier-grid">
+                    <div class="tier-card">
+                        <div class="tier-num">Tầng 1</div>
+                        <div class="tier-name">Sandbox Cô Lập</div>
+                        <div class="tier-detail">Trình duyệt chạy qua CDP port 9222, cô lập cookies/storage, khống chế trần tối đa số session đồng thời (MVP-76).</div>
+                    </div>
+                    <div class="tier-card">
+                        <div class="tier-num">Tầng 2</div>
+                        <div class="tier-name">Nhận Diện WAF Sớm</div>
+                        <div class="tier-detail">Module <code>IPBlockDetector</code> quét nhanh các mẫu: Cloudflare 1020, Ray ID, Imperva, Akamai, Geoblock 451.</div>
+                    </div>
+                    <div class="tier-card">
+                        <div class="tier-num">Tầng 3</div>
+                        <div class="tier-name">Cầu Dao Ngắt Mạch</div>
+                        <div class="tier-detail"><code>Circuit Breaker</code> theo domain: Khi 1 IP bị chặn, lập tức ngắt mạch domain đó, chặn mọi request tiếp theo từ đầu.</div>
+                    </div>
+                    <div class="tier-card">
+                        <div class="tier-num">Tầng 4</div>
+                        <div class="tier-name">Human Handoff</div>
+                        <div class="tier-detail">Không bypass cưỡng chế. Chuyển giao Deep Link đặt bàn cho khách hàng tự thao tác thủ công khi gặp sự cố chính sách.</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-inner-title">Chu Trình Điều Phối Tác Vụ (ASCII Flow)</div>
+                    <div class="flow-box">
+[Tác vụ Đặt Bàn] ──► [Kiểm tra Circuit Breaker]
+                            │
+              ┌─────────────┴─────────────┐
+        (Cầu dao MỞ?)                (Cầu dao ĐÓNG)
+              │                             │
+              ▼                             ▼
+       [DỪNG NGAY TỨC THÌ]           [Cấp phát Sandbox CDP]
+       [Trả link Deeplink]                  │
+                                            ▼
+                                     [Điều hướng tới Web]
+                                            │
+                                            ▼
+                                   [IPBlockDetector Phân Tích]
+                                   ┌────────┴────────┐
+                             (Phát hiện 403/WAF)   (HTTP 200 OK)
+                                   │                 │
+                                   ▼                 ▼
+                          [Kích hoạt Cầu dao]    [Điền Form & Đặt Bàn]
+                          [Stop & Escalate]      [Hoàn tất thành công]
+                    </div>
+                </div>
+            </section>
+
+            <!-- MỤC 3: PHƯƠNG PHÁP AN TOÀN -->
+            <section id="sec-methodology" class="content-section">
+                <div class="section-header">
+                    <h1 class="section-title">3. Phương Pháp Thực Nghiệm An Toàn (Compliance)</h1>
+                    <div class="section-desc">Không spam phá hoại trang thương mại thật để bảo vệ danh tiếng dải IP.</div>
+                </div>
+
+                <div class="alert-box">
+                    <strong>Quy tắc bảo vệ hạ tầng mạng:</strong> Tuyệt đối không dùng script spam trực tiếp vào các trang thương mại thật ngoài internet (như app giao đồ ăn hay web nhà hàng lớn). Điều này vi phạm Điều khoản dịch vụ (ToS) và có nguy cơ khiến dải IP công ty bị đưa vào Blacklist an ninh mạng toàn cầu (Spamhaus, AbuseIPDB).
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 15px;">
+                    <div class="card" style="margin-bottom: 0;">
+                        <div class="card-inner-title">Môi Trường Mock Server Cục Bộ</div>
+                        <ul style="font-size: 13px; line-height: 1.8; padding-left: 20px;">
+                            <li><code>http://127.0.0.1:8000/</code>: Trang đặt bàn nhà hàng chuẩn.</li>
+                            <li><code>/waf/blocked-403</code>: Mô phỏng WAF Cloudflare 1020 + Ray ID.</li>
+                            <li><code>/waf/geoblock-451</code>: Mô phỏng chặn IP vùng địa lý.</li>
+                            <li><code>/waf/spam-test</code>: Mô phỏng Fail2ban (Quá 3 req/5s dẫn đến cấm IP).</li>
+                        </ul>
+                    </div>
+
+                    <div class="card" style="margin-bottom: 0;">
+                        <div class="card-inner-title">Testbed Tiêu Chuẩn Quốc Tế</div>
+                        <ul style="font-size: 13px; line-height: 1.8; padding-left: 20px;">
+                            <li><code>https://httpbin.org/status/403</code>: Test HTTP 403 chuẩn quốc tế.</li>
+                            <li><code>https://httpbin.org/status/451</code>: Test Geoblock 451.</li>
+                            <li><code>https://bot.sannysoft.com/</code>: Đo lường cờ nhận diện bot trình duyệt.</li>
+                            <li><code>https://nowsecure.nl/</code>: Đo lường Cloudflare Bot Management.</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+    </div>
+
+    <!-- Script Chuyển Tab Bên Phải Khi Nhấn Vào Mục Bên Trái -->
+    <script>
+        function switchTab(sectionId, element) {
+            // Cập nhật trạng thái active cho sidebar items
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            element.classList.add('active');
+
+            // Cập nhật nội dung hiển thị ở bên phải
+            document.querySelectorAll('.content-section').forEach(sec => {
+                sec.classList.remove('active');
+            });
+            const targetSection = document.getElementById(sectionId);
+            if (targetSection) {
+                targetSection.classList.add('active');
+            }
+        }
+    </script>
+
+</body>
+</html>
